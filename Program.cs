@@ -22,7 +22,6 @@ namespace TinyCURL_002b
             tc.SetUserAgent("Mozilla/5.0");
             tc.SendGetRequest();
             Console.WriteLine(tc.GetResponseHeaders());
-            Console.WriteLine(tc.GetResponseHeaders());
 
             Console.Read();
         }
