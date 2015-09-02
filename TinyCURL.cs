@@ -26,16 +26,23 @@ namespace TinyCURL_002b
 
         public string responseHeaders;
 
+        public string responseBody;
+
         public SslStream ssl;
 
         public TinyCurl(string url)
         {
             URL = new Uri(url);
 
-            userAgent = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36";
+            userAgent = "TinyCurl/0.0.2b";
 
             requestHeaders = new List<string>();
 
+            Reset();
+        }
+
+        public void Reset()
+        {
             TcpClient tc = new TcpClient(URL.Host, URL.Port);
 
             ssl = new SslStream(tc.GetStream());
@@ -45,6 +52,8 @@ namespace TinyCURL_002b
 
         public void SslSendGetRequest()
         {
+            Reset();
+
             if (!ssl.IsAuthenticated)
             {
                 ssl.AuthenticateAsClient(URL.Host);
@@ -109,6 +118,8 @@ namespace TinyCURL_002b
 
         public void SendGetRequest()
         {
+            Reset();
+
             string request =
                 "GET " + URL.AbsolutePath + " HTTP/1.1\r\n" +
                 "Host: " + URL.Host + "\r\n" +
@@ -155,6 +166,127 @@ namespace TinyCURL_002b
                     }
                 }
             }
+        }
+
+        public void SendPostRequest(Dictionary<string, string> postdata)
+        {
+            Reset();
+            
+            string request =
+                "POST " + URL.AbsolutePath + " HTTP/1.1\r\n" +
+                "Host: " + URL.Host + "\r\n" +
+                "User-Agent: " + userAgent + "\r\n" +
+                "Content-Type: application/x-www-form-urlencoded\r\n";
+
+            foreach (string header in requestHeaders)
+            {
+                request += header + "\r\n";
+            }
+
+            string requestBody = "";
+
+            int c = 0;
+            int count = postdata.Count;
+
+            foreach (var input in postdata)
+            {
+                requestBody += input.Key + "=" + input.Value;
+                if (c++ < count)
+                {
+                    requestBody += "&";
+                }
+            }
+
+            request += "Content-Length: " + requestBody.Length + "\r\n";
+
+            request += "\r\n";
+
+            request += requestBody;
+
+            byte[] data = Encoding.ASCII.GetBytes(request);
+            socket.Send(data);
+        }
+
+        public void SslSendPostRequest(Dictionary<string, string> postdata)
+        {
+            Reset();
+
+            if (!ssl.IsAuthenticated)
+            {
+                ssl.AuthenticateAsClient(URL.Host);
+            }
+
+            string request =
+                "POST " + URL.AbsolutePath + " HTTP/1.1\r\n" +
+                "Host: " + URL.Host + "\r\n" +
+                "User-Agent: " + userAgent + "\r\n" +
+                "Content-Type: application/x-www-form-urlencoded\r\n";
+
+            foreach (string header in requestHeaders)
+            {
+                request += header + "\r\n";
+            }
+
+            string requestBody = "";
+
+            int c = 0;
+            int count = postdata.Count;
+
+            foreach (var input in postdata)
+            {
+                requestBody += input.Key + "=" + input.Value;
+                if (c++ < count)
+                {
+                    requestBody += "&";
+                }
+            }
+
+            request += "Content-Length: " + requestBody.Length + "\r\n";
+
+            request += "\r\n";
+
+            request += requestBody;
+
+            byte[] data = Encoding.ASCII.GetBytes(request);
+            ssl.Write(data);
+        }
+
+        public string SslGetResponseBody()
+        {
+            SslGetResponseHeaders();
+
+            int contentLength = GetContentLength();
+
+            byte[] data = new byte[contentLength];
+
+            ssl.Read(data, 0, contentLength);
+
+            responseBody = Encoding.UTF8.GetString(data);
+
+            return responseBody;
+        }
+
+        public int GetContentLength()
+        {
+            int lengthCheck = responseHeaders.IndexOf("\r\nContent-Length:");
+
+            if (lengthCheck != -1)
+            {
+                lengthCheck += 17;
+
+                string sLength = "";
+
+                while (responseHeaders[lengthCheck] != '\r')
+                {
+                    sLength += responseHeaders[lengthCheck];
+                    lengthCheck++;
+                }
+
+                int iLength = int.Parse(sLength, System.Globalization.NumberStyles.Integer);
+
+                return iLength;
+            }
+            return -1;
         }
 
         public bool IsResponseChunked()
